@@ -90,7 +90,15 @@ def descargar_y_reemplazar(url: str, carpeta: Path, nombre: str) -> Path:
 
         os.replace(tmp_path, final_path)
         return final_path
-
+        
+    except requests.RequestException:
+        # Evita mostrar la URL protegida en los registros de GitHub Actions.
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise RuntimeError(
+            "No fue posible descargar el archivo de origen."
+        ) from None
+    
     except Exception:
         # Evita dejar un archivo temporal incompleto si falla la descarga.
         if tmp_path.exists():

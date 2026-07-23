@@ -25,6 +25,7 @@ ARCHIVO_SALIDA = "Datos_SAE_filtrado.csv"    # Salida final CSV multiamenaza
 COL_FECHA = "Fecha del mensaje"  # Serial Excel, ej. 46007
 COL_HORA = "Hora"                # Fracción de día, ej. 0.7472222
 COL_EVENTO = "Evento"            # Ej. Incendio Forestal, Inundación
+COL_MENSAJE = "Mensaje"          # Texto del mensaje SAE
 
 # Clasificación de eventos SAE.
 # Las claves deben escribirse normalizadas: minúsculas y sin tildes.
@@ -52,6 +53,14 @@ CLASIFICACION_EVENTOS = {
     "remociones en masa": {
         "Amenaza": "Meteorológica",
         "Variable_amenaza": "Remoción en masa",
+    },
+    "marejada": {
+        "Amenaza": "Meteorológica",
+        "Variable_amenaza": "Marejadas",
+    },
+    "marejadas": {
+        "Amenaza": "Meteorológica",
+        "Variable_amenaza": "Marejadas",
     },
 }
 
@@ -90,15 +99,7 @@ def descargar_y_reemplazar(url: str, carpeta: Path, nombre: str) -> Path:
 
         os.replace(tmp_path, final_path)
         return final_path
-        
-    except requests.RequestException:
-        # Evita mostrar la URL protegida en los registros de GitHub Actions.
-        if tmp_path.exists():
-            tmp_path.unlink()
-        raise RuntimeError(
-            "No fue posible descargar el archivo de origen."
-        ) from None
-    
+
     except Exception:
         # Evita dejar un archivo temporal incompleto si falla la descarga.
         if tmp_path.exists():
@@ -160,6 +161,7 @@ def clasificar_eventos(df: pd.DataFrame) -> pd.DataFrame:
     """Añade las columnas Amenaza y Variable_amenaza según el campo Evento."""
     resultado = df.copy()
     resultado["_evento_normalizado"] = resultado[COL_EVENTO].apply(normalizar_texto)
+    resultado["_mensaje_normalizado"] = resultado[COL_MENSAJE].apply(normalizar_texto)
 
     resultado["Amenaza"] = resultado["_evento_normalizado"].map(
         lambda evento: CLASIFICACION_EVENTOS.get(evento, {}).get("Amenaza")
@@ -167,6 +169,19 @@ def clasificar_eventos(df: pd.DataFrame) -> pd.DataFrame:
     resultado["Variable_amenaza"] = resultado["_evento_normalizado"].map(
         lambda evento: CLASIFICACION_EVENTOS.get(evento, {}).get("Variable_amenaza")
     )
+
+    # Respaldo para registros cuyo Evento sea "Otras Emergencias" u otro valor,
+    # pero cuyo texto identifique explícitamente una marejada.
+    mask_marejadas_mensaje = (
+        resultado["Amenaza"].isna()
+        & resultado["_mensaje_normalizado"].str.contains(
+            r"\bmarejadas?\b",
+            regex=True,
+            na=False,
+        )
+    )
+    resultado.loc[mask_marejadas_mensaje, "Amenaza"] = "Meteorológica"
+    resultado.loc[mask_marejadas_mensaje, "Variable_amenaza"] = "Marejadas"
 
     return resultado
 
@@ -189,7 +204,7 @@ def main() -> None:
     df = pd.read_csv(ruta, encoding="utf-8-sig")
 
     # 3) Validar columnas mínimas
-    columnas_requeridas = [COL_FECHA, COL_HORA, COL_EVENTO]
+    columnas_requeridas = [COL_FECHA, COL_HORA, COL_EVENTO, COL_MENSAJE]
     faltantes = [columna for columna in columnas_requeridas if columna not in df.columns]
     if faltantes:
         raise ValueError(
@@ -240,7 +255,9 @@ def main() -> None:
 
     # Orden cronológico y eliminación de columna auxiliar interna
     df_filtrado = df_filtrado.sort_values("FechaHora_del_mensaje")
-    df_filtrado = df_filtrado.drop(columns=["_evento_normalizado"])
+    df_filtrado = df_filtrado.drop(
+        columns=["_evento_normalizado", "_mensaje_normalizado"]
+    )
 
     # 10) Guardar CSV final
     salida = DESTINO / ARCHIVO_SALIDA

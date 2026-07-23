@@ -1,0 +1,51 @@
+name: Actualizar datos SAE
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: actualizar-datos-sae
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Ejecutar procesamiento
+        env:
+          SOURCE_URL: ${{ secrets.SOURCE_URL }}
+          OUTPUT_DIR: ${{ github.workspace }}
+        run: python scraping2.py
+
+      - name: Publicar CSV actualizado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Datos_SAE_filtrado.csv
+
+          if git diff --cached --quiet; then
+            echo "El CSV no presenta cambios."
+            exit 0
+          fi
+
+          git commit -m "Actualizar datos SAE"
+          git push

@@ -323,8 +323,7 @@ button { cursor: pointer; }
       </button>
 
       <div class="sync-meta">
-        <div class="sync-meta__row"><span id="last-update-label">Última act.: —</span></div>
-        <div class="sync-meta__row"><span id="countdown-text">10s</span></div>
+        <div class="sync-meta__row"><span id="countdown-text">5 min</span></div>
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
     </div>
@@ -440,7 +439,7 @@ const DATA_URL = 'https://raw.githubusercontent.com/FranSENAPRED/datos-sae/main/
 const CACHE_KEY = 'sae_dashboard_cache_v21';
 const META_KEY  = 'sae_dashboard_meta_v21';
 
-const POLL_INTERVAL_MS   = 10000; // 10 segundos, obligatorio
+const POLL_INTERVAL_MS   = 300000; // 5 minutos
 const FETCH_TIMEOUT_MS   = 8000;
 const MAX_RETRIES        = 2;
 const RETRY_BASE_DELAY_MS = 500;
@@ -1519,11 +1518,6 @@ function renderConnectionBadge(transientState) {
 
   pill.dataset.state = effective;
   text.textContent = LABELS[effective] || 'DESCONOCIDO';
-
-  const lastUpdateLabel = document.getElementById('last-update-label');
-  if (state.lastUpdated) {
-    lastUpdateLabel.textContent = `Última act.: ${state.lastUpdated.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-  }
 }
 
 // ---- Barra de progreso / cuenta regresiva hacia la próxima sincronización ----
@@ -1538,12 +1532,16 @@ function startProgressBar(durationMs) {
   fill.style.width = '100%';
 
   if (state.progressTimer) clearInterval(state.progressTimer);
-  let restante = durationMs / 1000;
-  countdownText.textContent = `${Math.ceil(restante)}s`;
+  let restanteMs = durationMs;
+  const actualizarCuenta = () => {
+    const minutos = Math.max(0, Math.ceil(restanteMs / 60000));
+    countdownText.textContent = `${minutos} min`;
+  };
+  actualizarCuenta();
   state.progressTimer = setInterval(() => {
-    restante = Math.max(0, restante - 1);
-    countdownText.textContent = `${Math.ceil(restante)}s`;
-  }, 1000);
+    restanteMs = Math.max(0, restanteMs - 60000);
+    actualizarCuenta();
+  }, 60000);
 }
 
 // Subtítulo del encabezado según la amenaza activa. El título ("Visor de

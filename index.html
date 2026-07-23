@@ -172,6 +172,9 @@ button { cursor: pointer; }
 .kpi-secondary { font-size: 12px; color: var(--color-text-faint); font-weight: 600; }
 .kpi-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
 .kpi-icon svg { width: 26px; height: 26px; }
+.kpi-icon--total { background: #dbe6fd; color: #1d4ed8; }
+.kpi-icon--regions { background: #dcfce7; color: #0f9d63; }
+.kpi-icon--today { background: #fee2d5; color: #c2410c; }
 
 /* ---- Filtros ---- */
 .filters-card { padding: 8px 18px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; }
@@ -298,6 +301,260 @@ button { cursor: pointer; }
 @media (max-width: 1024px) {
   .header__status { justify-content: flex-start; }
 }
+
+/* ---- Modo móvil y tablet ----
+   En pantallas UAT se conserva el tablero de una sola vista. En celulares y
+   tablets el contenido pasa a un documento vertical desplazable, evitando
+   recortes horizontales y tarjetas comprimidas. */
+@media (max-width: 900px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body { font-size: 14px; }
+
+  .app {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    gap: 10px;
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+
+  .card { border-radius: 12px; }
+
+  .header {
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .header__brand {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .header__title {
+    font-size: clamp(1.45rem, 6.5vw, 1.85rem);
+    line-height: 1.08;
+  }
+
+  .header__subtitle {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .header__status {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 42px minmax(90px, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-pill {
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 12px;
+    font-size: 11.5px;
+  }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .sync-meta {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+  }
+
+  .sync-meta__row { justify-content: flex-end; }
+  .progress-track { width: 100%; }
+
+  .kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpi-card {
+    min-width: 0;
+    min-height: 126px;
+    padding: 14px;
+  }
+
+  .kpi-card:nth-child(3) {
+    grid-column: 1 / -1;
+    min-height: 108px;
+  }
+
+  .kpi-content { gap: 8px; }
+
+  .kpi-title {
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .kpi-value { font-size: clamp(2.4rem, 11vw, 3.1rem); }
+  .kpi-secondary { font-size: 10.5px; }
+
+  .kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .kpi-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .filters-card {
+    min-height: 0;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .filter-group {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+  }
+
+  .filter-group__label {
+    margin: 0;
+    font-size: 10.5px;
+  }
+
+  .segmented-group,
+  #variable-filter-list.segmented-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .segmented-group__btn,
+  #variable-filter-list.segmented-group .segmented-group__btn {
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+    font-size: 10.5px;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #variable-filter-list.segmented-group
+    .segmented-group__btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .active-filters { width: 100%; }
+  .active-filter-pill { max-width: 100%; }
+
+  .main-grid {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 10px;
+  }
+
+  .chart-card {
+    width: 100%;
+    height: 540px;
+    min-height: 540px;
+    padding: 16px 14px;
+  }
+
+  .chart-card__title { font-size: 17px; }
+
+  .chart-card__subtitle {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .chart-scroll {
+    min-height: 400px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chart-card__foot {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .legend {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .chart-hint { display: none; }
+
+  .recent-card {
+    width: 100%;
+    height: 560px;
+    min-height: 560px;
+  }
+
+  .recent-card__head { padding: 14px; }
+  .recent-card__title { font-size: 16px; }
+
+  .recent-list {
+    padding: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .msg-card { padding: 11px; }
+  .msg-card__text { font-size: 13px; }
+  .msg-card__meta { align-items: flex-start; }
+}
+
+@media (max-width: 420px) {
+  .header__status {
+    grid-template-columns: minmax(0, 1fr) 42px;
+  }
+
+  .sync-meta { grid-column: 1 / -1; }
+
+  .kpi-value { font-size: clamp(2.25rem, 12vw, 2.8rem); }
+
+  .chart-card {
+    height: 520px;
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 340px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .kpi-card:nth-child(3) { grid-column: auto; }
+}
 </style>
 </head>
 <body>
@@ -339,7 +596,7 @@ button { cursor: pointer; }
             <span class="kpi-value" id="kpi-total" data-value="0">—</span>
           </div>
         </div>
-        <div class="kpi-icon" style="background:#dbe6fd;color:#1d4ed8;"><i data-lucide="message-square"></i></div>
+        <div class="kpi-icon kpi-icon--total"><i data-lucide="message-square"></i></div>
       </div>
     </div>
     <div class="card kpi-card">
@@ -350,7 +607,7 @@ button { cursor: pointer; }
             <span class="kpi-value" id="kpi-regiones" data-value="0">—</span>
           </div>
         </div>
-        <div class="kpi-icon" style="background:#dcfce7;color:#0f9d63;"><i data-lucide="map"></i></div>
+        <div class="kpi-icon kpi-icon--regions"><i data-lucide="map"></i></div>
       </div>
     </div>
     <div class="card kpi-card">
@@ -362,7 +619,7 @@ button { cursor: pointer; }
             <span class="kpi-secondary" id="kpi-hoy-date"></span>
           </div>
         </div>
-        <div class="kpi-icon" style="background:#fee2d5;color:#c2410c;"><i data-lucide="activity"></i></div>
+        <div class="kpi-icon kpi-icon--today"><i data-lucide="activity"></i></div>
       </div>
     </div>
   </section>
@@ -1175,15 +1432,19 @@ function measureMaxLabelWidth(labels, font) {
 // Mide el ancho real de "TOTAL (+N hoy)" para el caso más ancho presente en los
 // datos actuales, usando exactamente las mismas fuentes con las que se dibuja
 // en saeTotalLabelPlugin (evita que la etiqueta quede cortada por el canvas).
-function measureMaxTotalLabelWidth(totales, dataHoy) {
+function measureMaxTotalLabelWidth(totales, dataHoy, compact = false) {
   const measurer = document.createElement('canvas').getContext('2d');
   let max = 0;
   for (let i = 0; i < totales.length; i++) {
     const totalText = `${totales[i]}`;
     const hoyText = ` (+${dataHoy[i]} hoy)`;
-    measurer.font = '800 13px Inter, Segoe UI, sans-serif';
+    measurer.font = compact
+      ? '800 11px Inter, Segoe UI, sans-serif'
+      : '800 13px Inter, Segoe UI, sans-serif';
     const w1 = measurer.measureText(totalText).width;
-    measurer.font = '600 12px Inter, Segoe UI, sans-serif';
+    measurer.font = compact
+      ? '600 10px Inter, Segoe UI, sans-serif'
+      : '600 12px Inter, Segoe UI, sans-serif';
     const w2 = measurer.measureText(hoyText).width;
     max = Math.max(max, w1 + w2);
   }
@@ -1205,7 +1466,7 @@ function measureMaxTotalLabelWidth(totales, dataHoy) {
 // segmentos (una región puede tener solo Histórico, solo Hoy, o alguno en
 // cero), no asumiendo que el dataset "Hoy" es siempre el que queda más a la
 // derecha.
-function buildTotalLabelPlugin(activeColors) {
+function buildTotalLabelPlugin(activeColors, compact = false) {
   return {
   id: 'saeTotalLabel',
   afterDatasetsDraw(chart) {
@@ -1252,9 +1513,11 @@ function buildTotalLabelPlugin(activeColors) {
         if (yBar === null) continue;
 
         const totalText = `${totalValue}`;
-        const x = xEnd + 10; // separación de ~8-12px respecto del final de la barra
+        const x = xEnd + (compact ? 6 : 10);
 
-        ctx.font = '800 13px Inter, Segoe UI, sans-serif';
+        ctx.font = compact
+          ? '800 11px Inter, Segoe UI, sans-serif'
+          : '800 13px Inter, Segoe UI, sans-serif';
         ctx.fillStyle = '#1e2734';
         ctx.fillText(totalText, x, yBar);
 
@@ -1263,7 +1526,9 @@ function buildTotalLabelPlugin(activeColors) {
         if (todayValue > 0) {
           const hoyText = ` (+${todayValue} hoy)`;
           const totalWidth = ctx.measureText(totalText).width;
-          ctx.font = '600 12px Inter, Segoe UI, sans-serif';
+          ctx.font = compact
+            ? '600 10px Inter, Segoe UI, sans-serif'
+            : '600 12px Inter, Segoe UI, sans-serif';
           ctx.fillStyle = activeColors.today;
           ctx.fillText(hoyText, x + totalWidth, yBar);
         }
@@ -1302,23 +1567,30 @@ function renderChart(filteredData, metrics) {
   const totales = sorted.map(([, v]) => v.total);
   const maxReal = Math.max(1, ...totales);
   const escalaMax = Math.ceil(maxReal * CHART_SCALE_HEADROOM);
+  const compactChart = window.matchMedia('(max-width: 900px)').matches;
 
   // Alto dinámico: cada región recibe una altura mínima legible; si no caben
   // todas en el panel visible, el contenedor exterior scrollea (igual que el
   // listado de mensajes), en vez de aplastar las barras.
   const panelHeight = scrollWrap.clientHeight;
-  const neededHeight = labels.length * CHART_ROW_MIN_PX;
+  const neededHeight = labels.length * (compactChart ? 34 : CHART_ROW_MIN_PX);
   canvasWrap.style.height = `${Math.max(panelHeight, neededHeight)}px`;
 
   // Padding izquierdo dinámico según el nombre de región más largo.
-  const labelFont = '600 12px Inter, Segoe UI, Arial, sans-serif';
+  const labelFont = compactChart
+    ? '600 10.5px Inter, Segoe UI, Arial, sans-serif'
+    : '600 12px Inter, Segoe UI, Arial, sans-serif';
   const maxLabelWidth = measureMaxLabelWidth(labels, labelFont);
-  const paddingLeft = Math.min(260, Math.max(110, Math.round(maxLabelWidth) + 24));
+  const paddingLeft = compactChart
+    ? Math.min(118, Math.max(78, Math.round(maxLabelWidth) + 16))
+    : Math.min(260, Math.max(110, Math.round(maxLabelWidth) + 24));
 
   // Padding derecho dinámico según el ancho real de "TOTAL (+N hoy)": nunca se
   // corta contra el borde del canvas, sin importar cuántos dígitos tenga el total.
-  const maxTotalLabelWidth = measureMaxTotalLabelWidth(totales, dataHoy);
-  const paddingRight = Math.max(85, Math.round(maxTotalLabelWidth) + 20);
+  const maxTotalLabelWidth = measureMaxTotalLabelWidth(totales, dataHoy, compactChart);
+  const paddingRight = compactChart
+    ? Math.max(66, Math.round(maxTotalLabelWidth) + 12)
+    : Math.max(85, Math.round(maxTotalLabelWidth) + 20);
 
   // Colores según la categoría operativa seleccionada (o "Todas" por defecto).
   // Única fuente para leyenda, datasets, tooltip y la etiqueta "(+X hoy)".
@@ -1393,7 +1665,7 @@ function renderChart(filteredData, metrics) {
         },
       ],
     },
-    plugins: [buildTotalLabelPlugin(activeColors)],
+    plugins: [buildTotalLabelPlugin(activeColors, compactChart)],
     options: {
       indexAxis: 'y',
       responsive: true,
@@ -1468,7 +1740,11 @@ function buildSegmentDatalabel(textColor) {
   return {
     display: (c) => (c.dataset.data[c.dataIndex] > 0 ? 'auto' : false),
     color: textColor || '#ffffff',
-    font: { family: 'Inter, Segoe UI, sans-serif', size: 11, weight: '700' },
+    font: {
+      family: 'Inter, Segoe UI, sans-serif',
+      size: window.matchMedia('(max-width: 900px)').matches ? 10 : 11,
+      weight: '700',
+    },
     formatter: (value) => value,
   };
 }
@@ -1484,7 +1760,11 @@ function buildRegionNameDatalabel() {
     clip: false,
     textAlign: 'right',
     color: '#334155',
-    font: { family: 'Inter, Segoe UI, sans-serif', size: 12, weight: '600' },
+    font: {
+      family: 'Inter, Segoe UI, sans-serif',
+      size: window.matchMedia('(max-width: 900px)').matches ? 10.5 : 12,
+      weight: '600',
+    },
     formatter: (value, c) => c.chart.data.labels[c.dataIndex],
   };
 }

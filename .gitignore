@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+Datos_SAE.xls
+Datos_SAE.xls.tmp

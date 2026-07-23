@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visor Multiamenaza SAE — SENAPRED</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@1.24.0/dist/umd/lucide.js"></script>
+
+<style>
+/* =========================================================
+   RESET Y BASE
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* sin scroll general del body */
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Segoe UI', Inter, system-ui, -apple-system, Arial, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font-family: inherit; }
+ul, ol { list-style: none; margin: 0; padding: 0; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* =========================================================
+   TOKENS DE DISEÑO
+   ========================================================= */
+:root {
+  --color-bg: #eef1f5;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f6f8fa;
+  --color-border: #dde3ea;
+  --color-border-strong: #c7d0dc;
+  --color-text: #1e2734;
+  --color-text-muted: #5b6b80;
+  --color-text-faint: #93a0b1;
+  --color-focus: #2563eb;
+
+  --shadow-card: 0 1px 2px rgba(15,23,42,.05), 0 6px 16px rgba(15,23,42,.06);
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --threat-incendios: #c2410c;
+  --threat-incendios-soft: #fee2d5;
+  --threat-meteo: #1d4ed8;
+  --threat-meteo-soft: #dbe6fd;
+  --threat-geologica: #6d28d9;
+  --threat-geologica-soft: #ece3fb;
+  --threat-otras: #475569;
+  --threat-otras-soft: #e2e8f0;
+
+  --historico-color: #94a3b8;
+  --historico-color-strong: #64748b;
+
+  --status-online: #0f9d63;
+  --status-cache: #b45309;
+  --status-offline: #b91c1c;
+  --status-loading: #b45309;
+}
+
+/* =========================================================
+   LAYOUT PRINCIPAL
+   ========================================================= */
+.app {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.header__brand { display: flex; align-items: center; gap: 12px; min-width: 260px; }
+.header__title { font-size: 21px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; margin: 0; }
+.header__subtitle { font-size: 13px; color: var(--color-text-muted); margin: 2px 0 0; font-weight: 500; }
+
+.header__status {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end;
+}
+.status-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.status-pill__dot { width: 9px; height: 9px; border-radius: 999px; background: var(--color-text-faint); flex-shrink: 0; }
+.status-pill[data-state="online"]  { color: var(--status-online); }
+.status-pill[data-state="online"] .status-pill__dot { background: var(--status-online); }
+.status-pill[data-state="cache"]   { color: var(--status-cache); }
+.status-pill[data-state="cache"] .status-pill__dot { background: var(--status-cache); }
+.status-pill[data-state="offline"] { color: var(--status-offline); }
+.status-pill[data-state="offline"] .status-pill__dot { background: var(--status-offline); }
+.status-pill[data-state="loading"] { color: var(--status-loading); }
+.status-pill[data-state="loading"] .status-pill__dot { animation: pulse-dot 1s ease-in-out infinite; background: var(--status-loading); }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+.icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.icon-btn:hover { background: var(--color-surface-alt); color: var(--color-focus); border-color: var(--color-border-strong); }
+.icon-btn svg { width: 17px; height: 17px; }
+
+.sync-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-size: 11px; color: var(--color-text-faint); min-width: 140px; }
+.sync-meta__row { display: flex; align-items: center; gap: 6px; font-family: 'Consolas', monospace; }
+.progress-track { width: 140px; height: 4px; border-radius: 999px; background: var(--color-border); overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; background: var(--color-focus); border-radius: 999px; transition: width linear; }
+
+/* ---- KPIs ----
+   Estructura unificada: .kpi-card > .kpi-content > (.kpi-text, .kpi-icon).
+   Las 3 tarjetas comparten exactamente las mismas reglas (nada por tarjeta
+   individual, sin nth-child ni ajustes de posición particulares). La fecha
+   secundaria de "Mensajes hoy" vive DENTRO de .kpi-value-row (misma fila que
+   la cifra, alineada a la línea base) en vez de una línea aparte, para que
+   su presencia no cambie la altura del bloque de texto frente a los otros
+   dos KPI. */
+.kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; flex-shrink: 0; }
+.kpi-card { padding: 16px 22px; display: flex; align-items: stretch; }
+.kpi-content { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.kpi-text { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.kpi-title {
+  font-size: clamp(1rem, 1.15vw, 1.2rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  line-height: 1;
+  margin: 0 0 8px;
+}
+.kpi-value-row { display: flex; align-items: baseline; gap: 8px; }
+.kpi-value {
+  font-size: clamp(2.7rem, 3.6vw, 4rem);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.kpi-secondary { font-size: 12px; color: var(--color-text-faint); font-weight: 600; }
+.kpi-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.kpi-icon svg { width: 26px; height: 26px; }
+
+/* ---- Filtros ---- */
+.filters-card { padding: 8px 18px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 56px; }
+.filters-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filter-group__label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-faint); margin-right: 2px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  transition: all .15s ease;
+}
+.chip svg { width: 14px; height: 14px; }
+.chip:hover { border-color: var(--color-border-strong); }
+.chip[aria-pressed="true"] { background: var(--chip-color-soft, #dbe6fd); color: var(--chip-color, #1d4ed8); border-color: transparent; }
+
+/* Control segmentado: un unico borde exterior por grupo, sin huecos entre
+   opciones (Amenaza y Variable). */
+.segmented-group {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  overflow: hidden;
+}
+.segmented-group[data-disabled="true"] { display: none; }
+.segmented-group__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  transition: background .15s ease, color .15s ease;
+}
+.segmented-group__btn:last-child { border-right: none; }
+.segmented-group__btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.segmented-group__btn:hover:not([aria-pressed="true"]) { background: rgba(15, 23, 42, .04); }
+.segmented-group__btn[aria-pressed="true"] {
+  background: var(--seg-color-soft, #dbeafe);
+  color: var(--seg-color-text, #1e3a5f);
+  font-weight: 800;
+}
+
+/* Grupo Variable: más opciones que Amenaza (hasta 5 botones), un punto más
+   compacto para que todo quepa en una sola línea sin dividir texto. */
+#variable-filter-list.segmented-group .segmented-group__btn {
+  font-size: 10px;
+  padding: 5px 8px;
+  gap: 4px;
+}
+#variable-filter-list.segmented-group .segmented-group__btn svg { width: 13px; height: 13px; }
+
+.active-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 0; }
+.active-filter-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: #fee2d5; color: #9a3412;
+  font-size: 11.5px; font-weight: 700;
+}
+.active-filter-pill button { display: flex; color: inherit; }
+.active-filter-pill svg { width: 12px; height: 12px; }
+
+/* ---- Zona principal ---- */
+.main-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; }
+@media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; grid-template-rows: 1.2fr 1fr; } }
+
+.chart-card { display: flex; flex-direction: column; min-height: 0; padding: 16px 18px; }
+.chart-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.chart-card__title { font-size: 15.5px; font-weight: 800; margin: 0; }
+.chart-card__subtitle { font-size: 11.5px; color: var(--color-text-muted); margin: 3px 0 0; }
+.chart-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
+.chart-scroll::-webkit-scrollbar { width: 6px; }
+.chart-scroll::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 999px; }
+.chart-scroll::-webkit-scrollbar-track { background: transparent; }
+#chart-canvas-wrap { position: relative; width: 100%; }
+.chart-card__foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--color-border); flex-shrink: 0; }
+.legend { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--color-text-muted); font-weight: 600; }
+.legend__item { display: flex; align-items: center; gap: 6px; }
+.legend__swatch { width: 11px; height: 11px; border-radius: 3px; }
+.chart-hint { font-size: 11px; color: var(--color-text-faint); font-family: 'Consolas', monospace; }
+.chart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--color-text-faint); }
+.chart-empty svg { width: 34px; height: 34px; }
+
+/* ---- Listado reciente ---- */
+.recent-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.recent-card__head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-alt); flex-shrink: 0; }
+.recent-card__title { font-size: 15px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; }
+.recent-card__title svg { width: 17px; height: 17px; color: var(--color-text-faint); }
+.live-badge { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: var(--status-online); text-transform: uppercase; }
+.live-badge__dot { width: 7px; height: 7px; border-radius: 999px; background: var(--status-online); animation: pulse-dot 1.4s ease-in-out infinite; }
+.recent-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.recent-list::-webkit-scrollbar { width: 6px; }
+.recent-list::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 999px; }
+.recent-list::-webkit-scrollbar-track { background: transparent; }
+
+.msg-card { border: 1px solid var(--color-border); border-left: 4px solid var(--color-border-strong); border-radius: 8px; padding: 10px 12px; background: var(--color-surface); }
+.msg-card__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.msg-card__badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.msg-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 5px; }
+.msg-card__time { font-size: 10.5px; color: var(--color-text-faint); font-family: 'Consolas', monospace; white-space: nowrap; }
+.msg-card__text { font-size: 12.5px; color: var(--color-text); line-height: 1.45; margin: 0 0 6px; }
+.msg-card__meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-text-faint); }
+.msg-card__meta svg { width: 12px; height: 12px; flex-shrink: 0; }
+.msg-card__code { font-family: 'Consolas', monospace; font-size: 10.5px; color: var(--color-text-faint); }
+
+.recent-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--color-text-faint); text-align: center; padding: 20px; }
+.recent-empty svg { width: 30px; height: 30px; }
+
+.recent-card__foot { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-top: 1px solid var(--color-border); background: var(--color-surface-alt); flex-shrink: 0; }
+.recent-card__foot span { font-size: 10.5px; color: var(--color-text-faint); font-family: 'Consolas', monospace; text-transform: uppercase; letter-spacing: .03em; }
+
+@media (max-width: 1024px) {
+  .header__status { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============ HEADER ============ -->
+  <header class="card header">
+    <div class="header__brand">
+      <div>
+        <h1 class="header__title">Visor de Alertas SAE</h1>
+        <p class="header__subtitle" id="header-subtitle">Amenaza meteorológica periodo (may 2026 – dic 2026)</p>
+      </div>
+    </div>
+
+    <div class="header__status">
+      <div class="status-pill" id="connection-pill" data-state="loading" role="status" aria-live="polite">
+        <span class="status-pill__dot" id="connection-dot"></span>
+        <span id="connection-text">INICIANDO</span>
+      </div>
+
+      <button type="button" class="icon-btn" id="btn-manual-sync" title="Sincronizar ahora" aria-label="Sincronizar ahora">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+
+      <div class="sync-meta">
+        <div class="sync-meta__row"><span id="last-update-label">Última act.: —</span></div>
+        <div class="sync-meta__row"><span id="countdown-text">10s</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ KPIs ============ -->
+  <section class="kpi-row" aria-label="Indicadores clave">
+    <div class="card kpi-card">
+      <div class="kpi-content">
+        <div class="kpi-text">
+          <div class="kpi-title">Total acumulado</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-total" data-value="0">—</span>
+          </div>
+        </div>
+        <div class="kpi-icon" style="background:#dbe6fd;color:#1d4ed8;"><i data-lucide="message-square"></i></div>
+      </div>
+    </div>
+    <div class="card kpi-card">
+      <div class="kpi-content">
+        <div class="kpi-text">
+          <div class="kpi-title">Regiones afectadas</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-regiones" data-value="0">—</span>
+          </div>
+        </div>
+        <div class="kpi-icon" style="background:#dcfce7;color:#0f9d63;"><i data-lucide="map"></i></div>
+      </div>
+    </div>
+    <div class="card kpi-card">
+      <div class="kpi-content">
+        <div class="kpi-text">
+          <div class="kpi-title">Mensajes hoy</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-hoy" data-value="0">—</span>
+            <span class="kpi-secondary" id="kpi-hoy-date"></span>
+          </div>
+        </div>
+        <div class="kpi-icon" style="background:#fee2d5;color:#c2410c;"><i data-lucide="activity"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FILTROS ============ -->
+  <section class="card filters-card" aria-label="Filtros">
+    <div class="filters-row">
+      <div class="filter-group">
+        <span class="filter-group__label">Amenaza</span>
+        <div id="threat-filter-list" class="segmented-group" role="group" aria-label="Filtrar por amenaza"></div>
+      </div>
+      <div class="filter-group" id="variable-filter-wrap">
+        <span class="filter-group__label">Variable</span>
+        <div id="variable-filter-list" class="segmented-group" role="group" aria-label="Filtrar por variable"></div>
+      </div>
+    </div>
+    <div class="active-filters" id="active-filters" aria-live="polite"></div>
+  </section>
+
+  <!-- ============ ZONA PRINCIPAL ============ -->
+  <div class="main-grid">
+
+    <section class="card chart-card">
+      <div class="chart-card__head">
+        <div>
+          <h2 class="chart-card__title">Distribución Regional</h2>
+          <p class="chart-card__subtitle">Histórico vs. actividad de hoy — regiones ordenadas de norte a sur</p>
+        </div>
+      </div>
+      <div class="chart-scroll" id="chart-scroll">
+        <div id="chart-canvas-wrap">
+          <canvas id="region-chart"></canvas>
+        </div>
+        <div class="chart-empty" id="chart-empty" style="display:none;">
+          <i data-lucide="inbox"></i>
+          <span>Sin datos para este criterio</span>
+        </div>
+      </div>
+      <div class="chart-card__foot">
+        <div class="legend">
+          <span class="legend__item"><span class="legend__swatch" id="legend-historico-swatch"></span>Histórico</span>
+          <span class="legend__item"><span class="legend__swatch" id="legend-hoy-swatch"></span>Hoy</span>
+        </div>
+        <span class="chart-hint">Clic en una barra para filtrar por región</span>
+      </div>
+    </section>
+
+    <section class="card recent-card">
+      <div class="recent-card__head">
+        <h2 class="recent-card__title"><i data-lucide="rss"></i>Últimas Alertas SAE</h2>
+        <span class="live-badge"><span class="live-badge__dot"></span>En vivo</span>
+      </div>
+      <div class="recent-list" id="recent-list">
+        <div class="recent-empty"><i data-lucide="loader"></i><span>Esperando datos…</span></div>
+      </div>
+      <div class="recent-card__foot">
+        <span id="recent-footer-count">0 registros</span>
+        <span id="recent-footer-filter"></span>
+      </div>
+    </section>
+
+  </div>
+
+</div>
+
+<script>
+// Registro único y global del plugin de etiquetas (nunca dentro de renderChart).
+Chart.register(ChartDataLabels);
+
+// =====================================================================
+// 1. CONFIGURACIÓN
+// =====================================================================
+const DATA_URL = 'https://raw.githubusercontent.com/FranSENAPRED/datos-sae/main/Datos_SAE_filtrado.csv';
+const CACHE_KEY = 'sae_dashboard_cache_v21';
+const META_KEY  = 'sae_dashboard_meta_v21';
+
+const POLL_INTERVAL_MS   = 10000; // 10 segundos, obligatorio
+const FETCH_TIMEOUT_MS   = 8000;
+const MAX_RETRIES        = 2;
+const RETRY_BASE_DELAY_MS = 500;
+const RECENT_COUNT       = 50;
+const CHART_ROW_MIN_PX   = 30; // alto mínimo por barra para evitar filas demasiado delgadas
+const CHART_SCALE_HEADROOM = 1.22; // 22% de espacio extra sobre el máximo real (rango pedido: 20%-25%)
+
+// Colores del gráfico "Distribución Regional" por categoría operativa: leyenda,
+// datasets, tooltip y la etiqueta "(+X hoy)" leen SIEMPRE de esta misma
+// constante (única fuente de verdad, sin valores repetidos en CSS aparte).
+// Histórico usa el tono más apagado/oscuro de la familia; Hoy, el más intenso.
+const VARIABLE_COLORS = {
+  'Incendios Forestales': { historical: '#7f1d1d', today: '#dc2626' }, // rojo oscuro / rojo intenso
+  'Inundación':            { historical: '#3b5b76', today: '#2563eb' }, // azul grisáceo / azul intenso
+  'Remoción en masa':      { historical: '#5c4033', today: '#a9702f' }, // café oscuro / café intenso
+  'Marejadas':             { historical: '#0e4c66', today: '#0891b2' }, // celeste oscuro / azul-celeste intenso, distinguible de Inundación
+  'Tormenta eléctrica':    { historical: '#4c1d95', today: '#7c3aed' }, // violeta oscuro / violeta intenso, distinguible del resto
+  'Todas':                 { historical: '#94a9c6', today: '#4f8fef' }, // Meteorológica + Todas: paleta clara y legible (antes muy oscura)
+};
+
+// Metadatos visuales del grupo 1 (Amenaza): Incendios Forestales | Meteorológica.
+const THREAT_META = {
+  'Incendios Forestales': { icon: 'flame',      chipSoft: '#fee2e2', chipText: '#7f1d1d' },
+  'Meteorológica':         { icon: 'cloud-rain', chipSoft: '#dbeafe', chipText: '#1e3a5f' },
+};
+const THREATS = ['Incendios Forestales', 'Meteorológica'];
+
+// Metadatos visuales del grupo 2 (Variable), solo aplica bajo "Meteorológica".
+const VARIABLE_META = {
+  'Todas':                { icon: 'layers',    chipSoft: '#dbeafe', chipText: '#1e3a5f' },
+  'Inundación':            { icon: 'droplets',  chipSoft: '#dbeafe', chipText: '#1e3a5f' },
+  'Remoción en masa':      { icon: 'mountain',  chipSoft: '#f3e6d8', chipText: '#5c4033' },
+  'Marejadas':             { icon: 'waves',     chipSoft: '#cffafe', chipText: '#0e4c66' },
+  'Tormenta eléctrica':    { icon: 'cloud-lightning', chipSoft: '#ede9fe', chipText: '#4c1d95' },
+};
+const VARIABLES = ['Todas', 'Inundación', 'Remoción en masa', 'Marejadas', 'Tormenta eléctrica'];
+
+// Resuelve la clave de VARIABLE_COLORS activa según el estado combinado de
+// Amenaza + Variable, sin alterar ninguno de los colores ya definidos.
+function getActiveColorKey() {
+  if (state.selectedThreat === 'Incendios Forestales') return 'Incendios Forestales';
+  return state.selectedVariable === 'Todas' ? 'Todas' : state.selectedVariable;
+}
+
+// Alias tolerantes de columnas: el CSV real puede variar nombres/mayúsculas/acentos.
+const COLUMN_ALIASES = {
+  numero:    ['n°', 'no', 'numero', 'id'],
+  region:    ['región', 'region', 'regiones'],
+  amenaza:   ['amenaza', 'tipo de amenaza'],
+  variable:  ['variable_amenaza', 'variable amenaza', 'variable'],
+  evento:    ['evento', 'tipo de evento'],
+  mensaje:   ['mensaje', 'texto', 'contenido', 'descripcion'],
+  poligono:  ['poligono de difusion', 'polígono de difusión', 'poligono', 'zona', 'comuna'],
+  tipoMsg:   ['tipo de mensaje', 'estado'],
+  fechaReal: ['fecha_real', 'fecha real'],
+  fechaDt:   ['fecha_dt', 'fecha dt'],
+  fechaFmt:  ['fecha del mensaje (dd/mm/yyyy)', 'fecha del mensaje', 'fecha'],
+  horaReal:  ['hora_real', 'hora real'],
+  horaFmt:   ['hora del mensaje (hh:mm)', 'hora del mensaje', 'hora'],
+};
+
+// Definiciones de amenaza: clave de negocio, palabras clave para clasificar y
+// variables CSS de color (se resuelven en tiempo de ejecución en resolvePalette()).
+const THREAT_DEFINITIONS = [
+  { key: 'Incendios Forestales', keywords: [], varColor: '--threat-incendios', varSoft: '--threat-incendios-soft', icon: 'flame' }, // detección centralizada en esIncendioForestal()
+  { key: 'Meteorológica', keywords: ['meteorolog', 'inundacion', 'remocion', 'temporal', 'viento', 'nieve', 'lluvia'], varColor: '--threat-meteo', varSoft: '--threat-meteo-soft', icon: 'cloud-rain' },
+  { key: 'Geológica', keywords: ['geologic', 'sismo', 'terremoto', 'volcan', 'tsunami'], varColor: '--threat-geologica', varSoft: '--threat-geologica-soft', icon: 'mountain-snow' },
+  { key: 'Otras Amenazas', keywords: [], varColor: '--threat-otras', varSoft: '--threat-otras-soft', icon: 'alert-circle' } // catch-all, siempre al final
+];
+
+// Orden geográfico oficial de norte a sur (normalizado, sin tildes).
+const REGION_ORDER = [
+  'arica y parinacota', 'tarapaca', 'antofagasta', 'atacama', 'coquimbo',
+  'valparaiso', 'metropolitana', "o'higgins", 'ohiggins', 'maule', 'nuble',
+  'biobio', 'araucania', 'los rios', 'los lagos', 'aysen', 'magallanes'
+];
+
+// =====================================================================
+// 2. ESTADO GLOBAL
+// =====================================================================
+const state = {
+  allData: [],
+  columnMap: {},
+  selectedThreat: 'Meteorológica',  // 'Incendios Forestales' | 'Meteorológica' (nunca null) — vista inicial del visor
+  selectedVariable: 'Todas',        // 'Todas' | 'Inundación' | 'Remoción en masa' (solo aplica bajo Meteorológica)
+  selectedRegion: null,
+  isLoading: false,
+  connection: 'loading', // 'loading' | 'online' | 'cache' | 'offline'
+  connectionMeta: null,
+  chartInstance: null,
+  nextPollTimer: null,
+  progressTimer: null,
+  lastUpdated: null,
+};
+
+// =====================================================================
+// 3. UTILIDADES
+// =====================================================================
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function normalizeKey(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+function limpiarIdentificadorVisual(texto) {
+  return String(texto || '')
+    .replace(/\s*#\d+\s*$/g, '')
+    .trim();
+}
+
+function formatNumber(n) { return Number(n || 0).toLocaleString('es-CL'); }
+
+function animateValue(el, start, end, duration) {
+  if (start === end) { el.textContent = formatNumber(end); return; }
+  const t0 = performance.now();
+  const step = (now) => {
+    const progress = Math.min((now - t0) / duration, 1);
+    const value = Math.round(start + (end - start) * progress);
+    el.textContent = formatNumber(value);
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function setKpiValue(elId, value) {
+  const el = document.getElementById(elId);
+  const prev = Number(el.getAttribute('data-value')) || 0;
+  el.setAttribute('data-value', value);
+  animateValue(el, prev, value, 600);
+}
+
+// Paleta resuelta desde las variables CSS (única fuente de verdad de color).
+const palette = {};
+function resolvePalette() {
+  const root = getComputedStyle(document.documentElement);
+  THREAT_DEFINITIONS.forEach((def) => {
+    def.color = root.getPropertyValue(def.varColor).trim();
+    def.soft = root.getPropertyValue(def.varSoft).trim();
+  });
+  palette.historico = root.getPropertyValue('--historico-color').trim();
+  palette.historicoStrong = root.getPropertyValue('--historico-color-strong').trim();
+}
+
+function getThreatDefinition(threatKey) {
+  return THREAT_DEFINITIONS.find((d) => d.key === threatKey) || THREAT_DEFINITIONS[THREAT_DEFINITIONS.length - 1];
+}
+
+function regionRank(regionName) {
+  const norm = normalizeKey(regionName);
+  const idx = REGION_ORDER.findIndex((r) => norm.includes(r) || r.includes(norm));
+  return idx === -1 ? REGION_ORDER.length + 1 : idx;
+}
+
+// =====================================================================
+// 4. PARSEO Y NORMALIZACIÓN
+// =====================================================================
+function buildColumnMap(fields) {
+  const pool = (fields || []).map((f) => ({ original: f, norm: normalizeKey(f) }));
+  const map = {};
+  Object.keys(COLUMN_ALIASES).forEach((canon) => {
+    const aliases = COLUMN_ALIASES[canon].map(normalizeKey);
+    const hit = pool.find((f) => aliases.includes(f.norm));
+    map[canon] = hit ? hit.original : null;
+  });
+  return map;
+}
+
+function columnMapUsable(map) {
+  // Consideramos el CSV "reconocible" si al menos existe una columna de región
+  // y una columna de fecha utilizable; de lo contrario no hay forma fiable de
+  // agrupar ni ordenar los mensajes.
+  const tieneFecha = !!(map.fechaReal || map.fechaDt || map.fechaFmt);
+  return !!map.region && tieneFecha;
+}
+
+function getRegion(row) { return (state.columnMap.region && row[state.columnMap.region]) || 'Sin región'; }
+function getNumero(row) { return state.columnMap.numero ? row[state.columnMap.numero] : ''; }
+function getMensaje(row) { return (state.columnMap.mensaje && row[state.columnMap.mensaje]) || 'Sin mensaje'; }
+function getPoligono(row) { return (state.columnMap.poligono && row[state.columnMap.poligono]) || ''; }
+function getTipoMensaje(row) { return (state.columnMap.tipoMsg && row[state.columnMap.tipoMsg]) || ''; }
+function getEventoRaw(row) { return (state.columnMap.evento && row[state.columnMap.evento]) || ''; }
+function getAmenazaRaw(row) { return (state.columnMap.amenaza && row[state.columnMap.amenaza]) || ''; }
+function getVariableRaw(row) { return (state.columnMap.variable && row[state.columnMap.variable]) || ''; }
+
+function getFecha(row) {
+  const m = state.columnMap;
+  return (m.fechaReal && row[m.fechaReal]) || (m.fechaDt && row[m.fechaDt]) || (m.fechaFmt && row[m.fechaFmt]) || '';
+}
+function getHora(row) {
+  const m = state.columnMap;
+  return (m.horaReal && row[m.horaReal]) || (m.horaFmt && row[m.horaFmt]) || '';
+}
+
+function esMarejada(texto) {
+  const norm = normalizeKey(texto);
+  return !!norm && norm.includes('marejada');
+}
+
+// Reconoce "tormenta electrica"/"tormentas electricas" (y sus variantes con
+// tilde, ya neutralizadas por normalizeKey) usando un regex tolerante al
+// plural en ambas palabras, en vez de un solo includes() literal que se
+// rompería con "tormentas electricas".
+function esTormentaElectrica(texto) {
+  const norm = normalizeKey(texto);
+  if (!norm) return false;
+  return /\btormentas?\s+electricas?\b/.test(norm);
+}
+
+function esIncendioForestal(texto) {
+  const norm = normalizeKey(texto);
+  if (!norm) return false;
+  return norm.includes('incendio') || /\bif\b/.test(norm);
+}
+
+function matchThreatDefinition(text) {
+  const norm = normalizeKey(text);
+  if (!norm) return null;
+  for (const def of THREAT_DEFINITIONS) {
+    if (def.keywords.length && def.keywords.some((k) => norm.includes(k))) return def;
+  }
+  return null;
+}
+
+function getAmenaza(row) {
+  const amenazaCSV = String(getAmenazaRaw(row)).trim();
+  const evento = getEventoRaw(row);
+  if (esIncendioForestal(amenazaCSV) || esIncendioForestal(evento) || esIncendioForestal(getVariableRaw(row))) {
+    return 'Incendios Forestales';
+  }
+  if (amenazaCSV) {
+    const def = matchThreatDefinition(amenazaCSV);
+    if (def) return def.key;
+  }
+  const defEvento = matchThreatDefinition(evento);
+  if (defEvento) return defEvento.key;
+  if (amenazaCSV || evento) return 'Otras Amenazas';
+  return '';
+}
+
+function getVariableAmenaza(row) {
+  const variableCSV = String(getVariableRaw(row)).trim();
+  const fuente = normalizeKey(variableCSV || getEventoRaw(row));
+  if (fuente.includes('inundacion')) return 'Inundación';
+  if (fuente.includes('remocion')) return 'Remoción en masa';
+  if (fuente.includes('marejada')) return 'Marejadas';
+  if (esTormentaElectrica(fuente)) return 'Tormenta eléctrica';
+  if (esIncendioForestal(fuente)) return 'Incendio Forestal';
+  if (fuente.includes('sismo') || fuente.includes('terremoto')) return 'Sismo';
+  if (fuente.includes('volcan')) return 'Actividad Volcánica';
+  if (fuente.includes('tsunami')) return 'Tsunami';
+  return variableCSV || getEventoRaw(row) || 'Alerta SAE';
+}
+
+// Categoría operativa del filtro del visor: exactamente 3 valores posibles
+// (o '' si el registro no clasifica en ninguno). Es la ÚNICA función que debe
+// usarse para el filtro, el color del gráfico, la leyenda y "(+X hoy)".
+// No fuerza "Incendios Forestales" dentro de la amenaza Meteorológica: es una
+// categoría operativa independiente de getAmenaza(), que se respeta tal cual
+// la clasifica el CSV.
+function getCategoriaOperativa(row) {
+  if (esIncendioForestal(getAmenazaRaw(row)) || esIncendioForestal(getEventoRaw(row)) || esIncendioForestal(getVariableRaw(row))) {
+    return 'Incendios Forestales';
+  }
+  // Respaldo: si Variable_amenaza no viene bien completada, se reconoce
+  // "marejada"/"marejadas" también en Evento o Mensaje.
+  if (esMarejada(getVariableRaw(row)) || esMarejada(getEventoRaw(row)) || esMarejada(getMensaje(row))) {
+    return 'Marejadas';
+  }
+  // Respaldo: si Variable_amenaza no viene bien completada, se reconoce
+  // "tormenta eléctrica"/"tormentas eléctricas" también en Evento o Mensaje.
+  if (esTormentaElectrica(getVariableRaw(row)) || esTormentaElectrica(getEventoRaw(row)) || esTormentaElectrica(getMensaje(row))) {
+    return 'Tormenta eléctrica';
+  }
+  const fuente = normalizeKey(getVariableRaw(row) || getEventoRaw(row) || getAmenazaRaw(row));
+  if (fuente.includes('inundacion')) return 'Inundación';
+  if (fuente.includes('remocion')) return 'Remoción en masa';
+  return '';
+}
+
+// ---- Parseo unificado de fecha/hora: única función reutilizada por KPIs,
+// gráfico, filtros, listado reciente y ordenamiento cronológico. ----
+function parseFechaHora(fechaStr, horaStr) {
+  if (!fechaStr) return null;
+  try {
+    const limpio = String(fechaStr).trim().split(' ')[0];
+    let dia, mes, anio;
+
+    if (limpio.includes('/')) {
+      const parts = limpio.split('/').map(Number);
+      if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+      [dia, mes, anio] = parts;
+    } else if (limpio.includes('-')) {
+      const parts = limpio.split('-').map(Number);
+      if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+      if (parts[0] > 1000) { [anio, mes, dia] = parts; } else { [dia, mes, anio] = parts; }
+    } else {
+      return null;
+    }
+
+    let hora = 0, min = 0;
+    if (horaStr && String(horaStr).includes(':')) {
+      const hp = String(horaStr).split(':').map(Number);
+      if (!Number.isNaN(hp[0])) hora = hp[0];
+      if (!Number.isNaN(hp[1])) min = hp[1];
+    }
+
+    const fecha = new Date(anio, mes - 1, dia, hora, min);
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  } catch (err) {
+    console.error('parseFechaHora: entrada inválida', { fechaStr, horaStr }, err);
+    return null;
+  }
+}
+
+function parseFechaHoraRow(row) { return parseFechaHora(getFecha(row), getHora(row)); }
+
+function normalizarFechaISO(fechaStr) {
+  const fecha = parseFechaHora(fechaStr, null);
+  if (!fecha) return null;
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+function hoyISO() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function parseCSV(csvText) {
+  const limpio = String(csvText || '').replace(/^﻿/, '');
+  const result = Papa.parse(limpio, { header: true, skipEmptyLines: true });
+  if (result.errors && result.errors.length) {
+    console.error('parseCSV: errores de PapaParse', result.errors);
+  }
+  const fields = (result.meta && result.meta.fields) || [];
+  const columnMap = buildColumnMap(fields);
+  const rows = (result.data || []).filter((row) => row && Object.values(row).some((v) => String(v ?? '').trim() !== ''));
+  return { rows, columnMap };
+}
+
+// =====================================================================
+// 5. GESTIÓN DE CACHE (localStorage)
+// =====================================================================
+function setCache(csvText) {
+  try {
+    localStorage.setItem(CACHE_KEY, csvText);
+    localStorage.setItem(META_KEY, JSON.stringify({ savedAt: new Date().toISOString() }));
+  } catch (err) {
+    console.error('setCache: no se pudo escribir en localStorage', err);
+  }
+}
+
+function getCache() {
+  try {
+    const csvText = localStorage.getItem(CACHE_KEY);
+    const metaRaw = localStorage.getItem(META_KEY);
+    return { csvText, meta: metaRaw ? JSON.parse(metaRaw) : null };
+  } catch (err) {
+    console.error('getCache: no se pudo leer de localStorage', err);
+    return { csvText: null, meta: null };
+  }
+}
+
+// =====================================================================
+// 6. CONSULTA REMOTA
+// =====================================================================
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { method: 'GET', cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCSVRobusto() {
+  const bust = `t=${Date.now()}`;
+  const url = DATA_URL.includes('?') ? `${DATA_URL}&${bust}` : `${DATA_URL}?${bust}`;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let text = await res.text();
+      text = text.replace(/^﻿/, '');
+      if (!text.includes('\n') || !text.includes(',')) throw new Error('Respuesta no parece un CSV válido');
+      return { ok: true, text };
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_RETRIES) await sleep(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+    }
+  }
+  return { ok: false, error: lastError };
+}
+
+function applyParsedData(rows, columnMap) {
+  state.allData = rows;
+  state.columnMap = columnMap;
+  const ultimo = rows
+    .map((r) => parseFechaHoraRow(r))
+    .filter(Boolean)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  state.lastUpdated = ultimo || null;
+}
+
+async function loadRemoteData() {
+  if (state.isLoading) return; // Evita solapar dos ejecuciones de loadData()
+  state.isLoading = true;
+  setConnectionState('loading');
+  startProgressBar(POLL_INTERVAL_MS);
+
+  try {
+    const remote = await fetchCSVRobusto();
+
+    if (remote.ok) {
+      try {
+        const { rows, columnMap } = parseCSV(remote.text);
+        if (!rows.length) throw new Error('CSV remoto vacío tras el parseo');
+        setCache(remote.text);
+        applyParsedData(rows, columnMap);
+        renderAll();
+        setConnectionState('online');
+      } catch (err) {
+        console.error('loadRemoteData: CSV remoto inválido, se intenta cache', err);
+        useCacheOrError();
+      }
+    } else {
+      console.error('loadRemoteData: fetch remoto falló', remote.error);
+      useCacheOrError();
+    }
+  } finally {
+    state.isLoading = false;
+    state.nextPollTimer = setTimeout(loadRemoteData, POLL_INTERVAL_MS);
+  }
+}
+
+function useCacheOrError() {
+  const { csvText, meta } = getCache();
+  if (csvText) {
+    try {
+      const { rows, columnMap } = parseCSV(csvText);
+      applyParsedData(rows, columnMap);
+      renderAll();
+      setConnectionState('cache', meta);
+    } catch (err) {
+      console.error('useCacheOrError: cache corrupta', err);
+      setConnectionState('offline');
+    }
+  } else {
+    setConnectionState('offline');
+  }
+}
+
+// =====================================================================
+// 8. FILTROS
+// =====================================================================
+// El cambio de filtros nunca vuelve a consultar el CSV: siempre opera sobre
+// state.allData, ya cargado en memoria (remoto o local).
+// Ya no existe un selector visual de región (se filtra solo con clic en el
+// gráfico). Si la región activa deja de tener datos bajo el filtro vigente de
+// Amenaza/Variable, se limpia automáticamente para no dejar un filtro fantasma.
+function syncSelectedRegion() {
+  if (!state.selectedRegion) return;
+  const disponibles = new Set(getFilteredData({ ignoreRegion: true }).map((r) => getRegion(r)));
+  if (!disponibles.has(state.selectedRegion)) {
+    state.selectedRegion = null;
+  }
+}
+
+function getFilteredData(opts) {
+  opts = opts || {};
+  return state.allData.filter((row) => {
+    const categoria = getCategoriaOperativa(row);
+    let coincideCategoria;
+    if (state.selectedThreat === 'Incendios Forestales') {
+      coincideCategoria = categoria === 'Incendios Forestales';
+    } else {
+      const esMeteorologica = categoria === 'Inundación' || categoria === 'Remoción en masa' || categoria === 'Marejadas' || categoria === 'Tormenta eléctrica';
+      coincideCategoria = esMeteorologica && (state.selectedVariable === 'Todas' || categoria === state.selectedVariable);
+    }
+    const coincideRegion = opts.ignoreRegion || !state.selectedRegion || getRegion(row) === state.selectedRegion;
+    return coincideCategoria && coincideRegion;
+  });
+}
+
+function setThreatFilter(threat) {
+  const previousThreat = state.selectedThreat;
+  state.selectedThreat = threat;
+  state.selectedRegion = null;
+  // Al volver a Meteorológica desde Incendios, se reinicia la variable a
+  // "Todas"; si ya estaba en Meteorológica, se conserva la selección vigente.
+  if (threat === 'Meteorológica' && previousThreat !== 'Meteorológica') {
+    state.selectedVariable = 'Todas';
+  }
+  renderAll();
+}
+
+function setVariableFilter(variable) {
+  if (state.selectedThreat !== 'Meteorológica') return; // no aplica bajo Incendios Forestales
+  state.selectedVariable = variable;
+  state.selectedRegion = null;
+  renderAll();
+}
+
+function setRegionFilter(regionName) {
+  state.selectedRegion = state.selectedRegion === regionName ? null : regionName;
+  renderAll();
+}
+
+// =====================================================================
+// 9. CÁLCULO DE MÉTRICAS
+// =====================================================================
+function computeMetrics(filteredData) {
+  const hoy = hoyISO();
+  const regionStats = {};
+  let totalHoy = 0;
+
+  filteredData.forEach((row) => {
+    const region = getRegion(row);
+    if (!regionStats[region]) regionStats[region] = { total: 0, hoy: 0 };
+    regionStats[region].total += 1;
+
+    const fechaISO = normalizarFechaISO(getFecha(row));
+    if (fechaISO === hoy) {
+      regionStats[region].hoy += 1;
+      totalHoy += 1;
+    }
+  });
+
+  return {
+    total: filteredData.length,
+    hoy: totalHoy,
+    regiones: Object.keys(regionStats).length,
+    regionStats,
+  };
+}
+
+// =====================================================================
+// 10. RENDERIZADO DE KPIS
+// =====================================================================
+// Solo quedan 3 indicadores: Total acumulado, Regiones afectadas, Mensajes hoy.
+function renderKPIs(metrics) {
+  setKpiValue('kpi-total', metrics.total);
+  setKpiValue('kpi-regiones', metrics.regiones);
+  setKpiValue('kpi-hoy', metrics.hoy);
+  document.getElementById('kpi-hoy-date').textContent = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
+}
+
+// =====================================================================
+// RENDERIZADO DE FILTROS (chip único de categoría operativa, select de
+// región, resumen de filtros activos)
+// =====================================================================
+// Grupo 1: Amenaza (Incendios Forestales | Meteorológica) — selector exclusivo.
+function renderThreatChips() {
+  const container = document.getElementById('threat-filter-list');
+  container.innerHTML = '';
+
+  THREATS.forEach((threat) => {
+    const meta = THREAT_META[threat];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'segmented-group__btn';
+    btn.dataset.threat = threat;
+    const active = state.selectedThreat === threat;
+    btn.setAttribute('aria-pressed', String(active));
+    btn.style.setProperty('--seg-color-text', meta.chipText);
+    btn.style.setProperty('--seg-color-soft', meta.chipSoft);
+    btn.innerHTML = `<i data-lucide="${meta.icon}"></i><span>${escapeHTML(threat)}</span>`;
+    btn.addEventListener('click', () => setThreatFilter(threat));
+    container.appendChild(btn);
+  });
+}
+
+// Grupo 2: Variable (Todas | Inundación | Remoción en masa) — visible y
+// habilitado solo cuando la amenaza activa es Meteorológica.
+function renderVariableChips() {
+  const wrap = document.getElementById('variable-filter-wrap');
+  const container = document.getElementById('variable-filter-list');
+  const habilitado = state.selectedThreat === 'Meteorológica';
+
+  wrap.style.display = habilitado ? 'flex' : 'none';
+  if (!habilitado) { container.innerHTML = ''; return; }
+
+  container.innerHTML = '';
+  VARIABLES.forEach((variable) => {
+    const meta = VARIABLE_META[variable];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'segmented-group__btn';
+    btn.dataset.variable = variable;
+    const active = state.selectedVariable === variable;
+    btn.setAttribute('aria-pressed', String(active));
+    btn.style.setProperty('--seg-color-text', meta.chipText);
+    btn.style.setProperty('--seg-color-soft', meta.chipSoft);
+    btn.innerHTML = `<i data-lucide="${meta.icon}"></i><span>${escapeHTML(variable)}</span>`;
+    btn.addEventListener('click', () => setVariableFilter(variable));
+    container.appendChild(btn);
+  });
+}
+
+function renderActiveFiltersSummary() {
+  const container = document.getElementById('active-filters');
+  container.innerHTML = '';
+  if (!state.selectedRegion) return;
+
+  const pill = document.createElement('span');
+  pill.className = 'active-filter-pill';
+  pill.innerHTML = `<span>Filtro activo: ${escapeHTML(state.selectedRegion)}</span>`;
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Quitar filtro de región');
+  closeBtn.innerHTML = '<i data-lucide="x"></i>';
+  closeBtn.addEventListener('click', () => setRegionFilter(state.selectedRegion));
+  pill.appendChild(closeBtn);
+  container.appendChild(pill);
+  if (window.lucide) lucide.createIcons();
+}
+
+// =====================================================================
+// 12. RENDERIZADO DEL LISTADO DE MENSAJES RECIENTES
+// =====================================================================
+// Color visual para "Últimas Alertas SAE": más específico que
+// getThreatDefinition() (que solo distingue Incendios vs Meteorológica y
+// mezclaba Inundación y Remoción en masa en el mismo azul). Reutiliza las
+// mismas constantes de color ya definidas para el gráfico y los chips de
+// filtro — Inundación y Incendios Forestales no cambian, Remoción en masa
+// pasa a café.
+function getAlertColor(row) {
+  const variable = getVariableAmenaza(row);
+  if (variable === 'Inundación') {
+    return { color: VARIABLE_COLORS['Inundación'].today, soft: VARIABLE_META['Inundación'].chipSoft };
+  }
+  if (variable === 'Remoción en masa') {
+    return { color: VARIABLE_COLORS['Remoción en masa'].today, soft: VARIABLE_META['Remoción en masa'].chipSoft };
+  }
+  if (variable === 'Marejadas') {
+    return { color: VARIABLE_COLORS['Marejadas'].today, soft: VARIABLE_META['Marejadas'].chipSoft };
+  }
+  if (variable === 'Tormenta eléctrica') {
+    return { color: VARIABLE_COLORS['Tormenta eléctrica'].today, soft: VARIABLE_META['Tormenta eléctrica'].chipSoft };
+  }
+  if (variable === 'Incendio Forestal') {
+    return { color: VARIABLE_COLORS['Incendios Forestales'].today, soft: THREAT_META['Incendios Forestales'].chipSoft };
+  }
+  const def = getThreatDefinition(getAmenaza(row) || 'Otras Amenazas');
+  return { color: def.color, soft: def.soft };
+}
+
+function renderRecentList(filteredData) {
+  const container = document.getElementById('recent-list');
+  const sorted = [...filteredData].sort((a, b) => {
+    const ta = parseFechaHoraRow(a);
+    const tb = parseFechaHoraRow(b);
+    return (tb ? tb.getTime() : 0) - (ta ? ta.getTime() : 0);
+  });
+  const slice = sorted.slice(0, RECENT_COUNT);
+
+  container.innerHTML = '';
+
+  if (!slice.length) {
+    container.innerHTML = `
+      <div class="recent-empty">
+        <i data-lucide="inbox"></i>
+        <span>Sin alertas para este criterio${state.selectedRegion ? ` en ${escapeHTML(state.selectedRegion)}` : ''}</span>
+      </div>`;
+    if (window.lucide) lucide.createIcons();
+    document.getElementById('recent-footer-count').textContent = '0 registros';
+    return;
+  }
+
+  slice.forEach((row) => {
+    const alertColor = getAlertColor(row);
+    const variable = getVariableAmenaza(row);
+    const region = getRegion(row);
+    const poligono = getPoligono(row);
+    // Limpieza solo visual: retira cualquier identificador "#NNNN" del bloque
+    // de ubicación al renderizar (allData no se modifica).
+    const ubicacion = limpiarIdentificadorVisual([poligono, region].filter(Boolean).join(', '));
+    const tipoMsg = getTipoMensaje(row);
+
+    const card = document.createElement('article');
+    card.className = 'msg-card';
+    card.style.borderLeftColor = alertColor.color;
+
+    card.innerHTML = `
+      <div class="msg-card__top">
+        <div class="msg-card__badges">
+          <span class="msg-badge" style="background:${alertColor.soft};color:${alertColor.color};">${escapeHTML(variable)}</span>
+          ${tipoMsg ? `<span class="msg-badge" style="background:#e2e8f0;color:#475569;">${escapeHTML(tipoMsg)}</span>` : ''}
+        </div>
+        <span class="msg-card__time">${escapeHTML(getFecha(row))} ${escapeHTML(getHora(row))}</span>
+      </div>
+      <p class="msg-card__text">${escapeHTML(getMensaje(row))}</p>
+      <div class="msg-card__meta">
+        <i data-lucide="map-pin"></i>
+        <span>${escapeHTML(ubicacion || 'Ubicación no especificada')}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  if (window.lucide) lucide.createIcons();
+  document.getElementById('recent-footer-count').textContent = `${filteredData.length} registros`;
+  document.getElementById('recent-footer-filter').textContent = state.selectedRegion ? `Región: ${state.selectedRegion}` : '';
+}
+
+// =====================================================================
+// 11. RENDERIZADO DEL GRÁFICO (barras horizontales apiladas)
+// =====================================================================
+// Mide en un canvas temporal el ancho de texto más largo entre los nombres
+// de región, para reservar exactamente el padding izquierdo necesario y que
+// ningún nombre se corte contra el borde de la tarjeta.
+function measureMaxLabelWidth(labels, font) {
+  const measurer = document.createElement('canvas').getContext('2d');
+  measurer.font = font;
+  let max = 0;
+  labels.forEach((label) => { max = Math.max(max, measurer.measureText(label).width); });
+  return max;
+}
+
+// Mide el ancho real de "TOTAL (+N hoy)" para el caso más ancho presente en los
+// datos actuales, usando exactamente las mismas fuentes con las que se dibuja
+// en saeTotalLabelPlugin (evita que la etiqueta quede cortada por el canvas).
+function measureMaxTotalLabelWidth(totales, dataHoy) {
+  const measurer = document.createElement('canvas').getContext('2d');
+  let max = 0;
+  for (let i = 0; i < totales.length; i++) {
+    const totalText = `${totales[i]}`;
+    const hoyText = ` (+${dataHoy[i]} hoy)`;
+    measurer.font = '800 13px Inter, Segoe UI, sans-serif';
+    const w1 = measurer.measureText(totalText).width;
+    measurer.font = '600 12px Inter, Segoe UI, sans-serif';
+    const w2 = measurer.measureText(hoyText).width;
+    max = Math.max(max, w1 + w2);
+  }
+  return max;
+}
+
+// Dibuja la etiqueta final de cada barra en dos colores: el total en gris
+// oscuro y "(+N hoy)" en el color "today" de la categoría activa (rojo para
+// Incendios Forestales, azul para Inundación, café para Remoción en masa).
+// chartjs-plugin-datalabels no admite dos colores dentro de una misma
+// etiqueta, por lo que se dibuja directamente en el canvas, una sola vez por
+// barra, al final de la pila. Recibe `activeColors` (VARIABLE_COLORS de la
+// categoría seleccionada) para no depender de una constante fija.
+//
+// Los datasets se localizan por `id` (no por índice fijo), y los valores de
+// Histórico/Hoy se leen directamente de `chart.data.datasets` en el momento
+// del dibujo — nunca de arrays externos que puedan desalinearse. La posición
+// horizontal final se calcula como el máximo x renderizado entre AMBOS
+// segmentos (una región puede tener solo Histórico, solo Hoy, o alguno en
+// cero), no asumiendo que el dataset "Hoy" es siempre el que queda más a la
+// derecha.
+function buildTotalLabelPlugin(activeColors) {
+  return {
+  id: 'saeTotalLabel',
+  afterDatasetsDraw(chart) {
+    const historicalIndex = chart.data.datasets.findIndex((d) => d.id === 'historical');
+    const todayIndex = chart.data.datasets.findIndex((d) => d.id === 'today');
+    if (historicalIndex === -1 || todayIndex === -1) {
+      console.warn('saeTotalLabel: no se encontraron los datasets "historical"/"today" por id; se omite la etiqueta de total.');
+      return;
+    }
+
+    const historicalDataset = chart.data.datasets[historicalIndex];
+    const todayDataset = chart.data.datasets[todayIndex];
+    const historicalMeta = chart.getDatasetMeta(historicalIndex);
+    const todayMeta = chart.getDatasetMeta(todayIndex);
+    const categoryCount = chart.data.labels.length;
+
+    const { ctx } = chart;
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    try {
+      for (let i = 0; i < categoryCount; i++) {
+        const historicalValue = Number(historicalDataset.data[i]) || 0;
+        const todayValue = Number(todayDataset.data[i]) || 0;
+        const totalValue = historicalValue + todayValue;
+        if (totalValue <= 0) continue; // sin datos para esta región: no dibujar nada
+
+        const historicalBar = historicalMeta.data[i];
+        const todayBar = todayMeta.data[i];
+
+        // Extremo derecho real de la barra: el máximo x disponible entre
+        // ambos segmentos, cualquiera que exista.
+        const xCandidates = [historicalBar, todayBar]
+          .filter(Boolean)
+          .map((bar) => bar.x)
+          .filter((x) => Number.isFinite(x));
+        if (!xCandidates.length) continue;
+        const xEnd = Math.max(...xCandidates);
+
+        const yBar = (todayBar && Number.isFinite(todayBar.y)) ? todayBar.y
+          : (historicalBar && Number.isFinite(historicalBar.y)) ? historicalBar.y
+          : null;
+        if (yBar === null) continue;
+
+        const totalText = `${totalValue}`;
+        const x = xEnd + 10; // separación de ~8-12px respecto del final de la barra
+
+        ctx.font = '800 13px Inter, Segoe UI, sans-serif';
+        ctx.fillStyle = '#1e2734';
+        ctx.fillText(totalText, x, yBar);
+
+        // Solo se dibuja "(+X hoy)" cuando hay mensajes de hoy; si todayValue
+        // es 0 no se reserva espacio ni se agrega texto adicional.
+        if (todayValue > 0) {
+          const hoyText = ` (+${todayValue} hoy)`;
+          const totalWidth = ctx.measureText(totalText).width;
+          ctx.font = '600 12px Inter, Segoe UI, sans-serif';
+          ctx.fillStyle = activeColors.today;
+          ctx.fillText(hoyText, x + totalWidth, yBar);
+        }
+      }
+    } catch (err) {
+      console.warn('saeTotalLabel: no se pudo dibujar la etiqueta de total', err);
+    }
+
+    ctx.restore();
+  },
+  };
+}
+
+function renderChart(filteredData, metrics) {
+  const chartEmpty = document.getElementById('chart-empty');
+  const scrollWrap = document.getElementById('chart-scroll');
+  const canvasWrap = document.getElementById('chart-canvas-wrap');
+  const canvas = document.getElementById('region-chart');
+
+  const entries = Object.entries(metrics.regionStats);
+
+  if (!entries.length) {
+    if (state.chartInstance) { state.chartInstance.destroy(); state.chartInstance = null; }
+    canvasWrap.style.display = 'none';
+    chartEmpty.style.display = 'flex';
+    return;
+  }
+  canvasWrap.style.display = 'block';
+  chartEmpty.style.display = 'none';
+
+  // Regiones ordenadas de norte a sur (no por actividad).
+  const sorted = entries.sort(([a], [b]) => regionRank(a) - regionRank(b) || a.localeCompare(b, 'es'));
+  const labels = sorted.map(([region]) => region);
+  const dataHist = sorted.map(([, v]) => v.total - v.hoy);
+  const dataHoy = sorted.map(([, v]) => v.hoy);
+  const totales = sorted.map(([, v]) => v.total);
+  const maxReal = Math.max(1, ...totales);
+  const escalaMax = Math.ceil(maxReal * CHART_SCALE_HEADROOM);
+
+  // Alto dinámico: cada región recibe una altura mínima legible; si no caben
+  // todas en el panel visible, el contenedor exterior scrollea (igual que el
+  // listado de mensajes), en vez de aplastar las barras.
+  const panelHeight = scrollWrap.clientHeight;
+  const neededHeight = labels.length * CHART_ROW_MIN_PX;
+  canvasWrap.style.height = `${Math.max(panelHeight, neededHeight)}px`;
+
+  // Padding izquierdo dinámico según el nombre de región más largo.
+  const labelFont = '600 12px Inter, Segoe UI, Arial, sans-serif';
+  const maxLabelWidth = measureMaxLabelWidth(labels, labelFont);
+  const paddingLeft = Math.min(260, Math.max(110, Math.round(maxLabelWidth) + 24));
+
+  // Padding derecho dinámico según el ancho real de "TOTAL (+N hoy)": nunca se
+  // corta contra el borde del canvas, sin importar cuántos dígitos tenga el total.
+  const maxTotalLabelWidth = measureMaxTotalLabelWidth(totales, dataHoy);
+  const paddingRight = Math.max(85, Math.round(maxTotalLabelWidth) + 20);
+
+  // Colores según la categoría operativa seleccionada (o "Todas" por defecto).
+  // Única fuente para leyenda, datasets, tooltip y la etiqueta "(+X hoy)".
+  const activeColors = VARIABLE_COLORS[getActiveColorKey()] || VARIABLE_COLORS['Todas'];
+  // Meteorológica + Todas usa una paleta más clara (ver VARIABLE_COLORS.Todas);
+  // el texto interno del segmento Histórico pasa a oscuro solo en ese caso
+  // para mantener buen contraste (el resto de categorías sigue en blanco).
+  const esMeteorologicaTodas = state.selectedThreat === 'Meteorológica' && state.selectedVariable === 'Todas';
+  const historicalLabelColor = esMeteorologicaTodas ? '#1e293b' : '#ffffff';
+
+  // Leyenda del gráfico: mismos colores exactos que los datasets, sin aproximaciones,
+  // opacidad ni bordes que puedan alterar la percepción del color.
+  [
+    ['legend-historico-swatch', activeColors.historical],
+    ['legend-hoy-swatch', activeColors.today],
+  ].forEach(([id, color]) => {
+    const swatch = document.getElementById(id);
+    swatch.style.background = color;
+    swatch.style.backgroundColor = color;
+    swatch.style.opacity = '1';
+    swatch.style.border = 'none';
+    swatch.style.filter = 'none';
+  });
+
+  if (state.chartInstance) {
+    state.chartInstance.destroy();
+    state.chartInstance = null;
+  }
+
+  const ctx = canvas.getContext('2d');
+
+  state.chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          id: 'historical',
+          label: 'Histórico',
+          data: dataHist,
+          backgroundColor: (c) => regionBarColor(labels[c.dataIndex], activeColors.historical, false),
+          hoverBackgroundColor: activeColors.historical,
+          borderColor: activeColors.historical,
+          stack: 'total',
+          barPercentage: 0.72,
+          categoryPercentage: 0.82,
+          borderRadius: 3,
+          datalabels: {
+            labels: {
+              value: buildSegmentDatalabel(historicalLabelColor),
+              region: buildRegionNameDatalabel(),
+            },
+          },
+        },
+        {
+          id: 'today',
+          label: 'Hoy',
+          data: dataHoy,
+          backgroundColor: (c) => regionBarColor(labels[c.dataIndex], activeColors.today, true),
+          hoverBackgroundColor: activeColors.today,
+          borderColor: activeColors.today,
+          stack: 'total',
+          barPercentage: 0.72,
+          categoryPercentage: 0.82,
+          borderRadius: 3,
+          minBarLength: (c) => (c.raw > 0 ? 4 : 0),
+          datalabels: {
+            labels: {
+              value: buildSegmentDatalabel('#ffffff'),
+            },
+          },
+        },
+      ],
+    },
+    plugins: [buildTotalLabelPlugin(activeColors)],
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 10, right: paddingRight, bottom: 6, left: paddingLeft } },
+      animation: { duration: 350, easing: 'easeOutQuart' },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        setRegionFilter(labels[idx]);
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2734',
+          titleFont: { size: 13, weight: '700' },
+          bodyFont: { size: 12 },
+          padding: 10,
+          cornerRadius: 6,
+          callbacks: {
+            title: (items) => `Región: ${items[0].label}`,
+            label: (item) => ` ${item.dataset.label}: ${item.raw}`,
+            footer: (items) => {
+              const idx = items[0].dataIndex;
+              return `Total: ${dataHist[idx] + dataHoy[idx]}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          min: 0,
+          max: escalaMax,
+          display: false,
+          grid: { display: false, drawTicks: false },
+          border: { display: false },
+        },
+        y: {
+          stacked: true,
+          display: false,
+          grid: { display: false },
+          border: { display: false },
+        },
+      },
+    },
+  });
+}
+
+// Colorea de forma distinta la región seleccionada (resalte) frente al resto
+// (ligeramente atenuado), sin perder la distinción Histórico/Hoy.
+function regionBarColor(regionName, color, isHoySeries) {
+  if (!state.selectedRegion || regionName === state.selectedRegion) return color;
+  return hexToRgba(color, isHoySeries ? 0.35 : 0.45);
+}
+
+function hexToRgba(hex, alpha) {
+  const clean = hex.replace('#', '');
+  const bigint = parseInt(clean.length === 3
+    ? clean.split('').map((c) => c + c).join('')
+    : clean, 16);
+  const r = (bigint >> 16) & 255, g = (bigint >> 8) & 255, b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Etiqueta de valor por segmento: solo si es > 0, 'auto' evita solapes y no
+// deforma el ancho de la barra para hacer caber el texto.
+function buildSegmentDatalabel(textColor) {
+  return {
+    display: (c) => (c.dataset.data[c.dataIndex] > 0 ? 'auto' : false),
+    color: textColor || '#ffffff',
+    font: { family: 'Inter, Segoe UI, sans-serif', size: 11, weight: '700' },
+    formatter: (value) => value,
+  };
+}
+
+// Nombre de región a la izquierda de la barra (el eje Y permanece oculto).
+// Se define sobre el dataset "Histórico" (base de la pila), anclado al
+// inicio de la barra.
+function buildRegionNameDatalabel() {
+  return {
+    display: (c) => !!c.chart.data.labels[c.dataIndex],
+    anchor: 'start',
+    align: 'start',
+    clip: false,
+    textAlign: 'right',
+    color: '#334155',
+    font: { family: 'Inter, Segoe UI, sans-serif', size: 12, weight: '600' },
+    formatter: (value, c) => c.chart.data.labels[c.dataIndex],
+  };
+}
+
+// =====================================================================
+// 13. ESTADO DE CONEXIÓN
+// =====================================================================
+// Único punto de verdad para el badge de estado: separa "¿está cargando
+// ahora mismo?" (transitorio) de "¿cuál fue el último resultado conocido?"
+// (persistente), evitando que el fin de una carga pise el estado real
+// (p. ej. mostrar "En línea" después de un error de red).
+function setConnectionState(newState, meta) {
+  if (newState !== 'loading') {
+    state.connection = newState;
+    state.connectionMeta = meta || null;
+  }
+  renderConnectionBadge(newState);
+}
+
+function renderConnectionBadge(transientState) {
+  const pill = document.getElementById('connection-pill');
+  const text = document.getElementById('connection-text');
+  const effective = transientState === 'loading' ? 'loading' : state.connection;
+
+  const LABELS = {
+    loading: 'ACTUALIZANDO…',
+    online: 'EN LÍNEA',
+    cache: 'DATOS DESDE CACHÉ',
+    offline: 'SIN CONEXIÓN',
+  };
+
+  pill.dataset.state = effective;
+  text.textContent = LABELS[effective] || 'DESCONOCIDO';
+
+  const lastUpdateLabel = document.getElementById('last-update-label');
+  if (state.lastUpdated) {
+    lastUpdateLabel.textContent = `Última act.: ${state.lastUpdated.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+  }
+}
+
+// ---- Barra de progreso / cuenta regresiva hacia la próxima sincronización ----
+function startProgressBar(durationMs) {
+  const fill = document.getElementById('progress-fill');
+  const countdownText = document.getElementById('countdown-text');
+
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  void fill.offsetWidth; // fuerza reflow
+  fill.style.transition = `width ${durationMs}ms linear`;
+  fill.style.width = '100%';
+
+  if (state.progressTimer) clearInterval(state.progressTimer);
+  let restante = durationMs / 1000;
+  countdownText.textContent = `${Math.ceil(restante)}s`;
+  state.progressTimer = setInterval(() => {
+    restante = Math.max(0, restante - 1);
+    countdownText.textContent = `${Math.ceil(restante)}s`;
+  }, 1000);
+}
+
+// Subtítulo del encabezado según la amenaza activa. El título ("Visor de
+// Alertas SAE") es fijo y no se toca aquí. Centralizado en una sola función
+// para no repetir el texto en varios lugares; se llama en la inicialización,
+// al cambiar de amenaza y en cada renderAll() (incluye recargas del CSV).
+function actualizarSubtituloAmenaza() {
+  const subtitle = document.getElementById('header-subtitle');
+  if (!subtitle) return;
+  if (state.selectedThreat === 'Incendios Forestales') {
+    subtitle.textContent = 'Incendios forestales periodo (jun 2026 – jun 2027)';
+  } else if (state.selectedVariable === 'Marejadas') {
+    subtitle.textContent = 'Monitoreo de mensajes SAE — Marejadas periodo (may 2026 – dic 2026)';
+  } else if (state.selectedVariable === 'Tormenta eléctrica') {
+    subtitle.textContent = 'Monitoreo de mensajes SAE — Tormenta eléctrica periodo (may 2026 – dic 2026)';
+  } else {
+    subtitle.textContent = 'Amenaza meteorológica periodo (may 2026 – dic 2026)';
+  }
+}
+
+// =====================================================================
+// ORQUESTADOR DE RENDERIZADO
+// =====================================================================
+function renderAll() {
+  actualizarSubtituloAmenaza();
+  renderThreatChips();
+  renderVariableChips();
+  syncSelectedRegion();
+  renderActiveFiltersSummary();
+
+  const filteredData = getFilteredData();
+  const metrics = computeMetrics(filteredData);
+
+  renderKPIs(metrics);
+  renderChart(filteredData, metrics);
+  renderRecentList(filteredData);
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// =====================================================================
+// 14. EVENTOS
+// =====================================================================
+function bindEvents() {
+  document.getElementById('btn-manual-sync').addEventListener('click', () => {
+    if (state.nextPollTimer) clearTimeout(state.nextPollTimer);
+    loadRemoteData();
+  });
+
+  window.addEventListener('resize', () => {
+    if (state.allData.length) renderChart(getFilteredData(), computeMetrics(getFilteredData()));
+  });
+}
+
+// =====================================================================
+// 15. INICIALIZACIÓN
+// =====================================================================
+function init() {
+  resolvePalette();
+  if (window.lucide) lucide.createIcons();
+  bindEvents();
+  renderAll();
+  loadRemoteData();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>

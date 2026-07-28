@@ -1,7 +1,7 @@
 # Actualización automática de datos SAE
 
 Este repositorio descarga el archivo SAE desde SharePoint, procesa sus registros
-y actualiza `Datos_SAE_filtrado.csv` automáticamente cada 15 minutos mediante
+y actualiza `Datos_SAE_filtrado.csv` automáticamente cada 15-30 minutos mediante
 GitHub Actions.
 
 ## Archivos

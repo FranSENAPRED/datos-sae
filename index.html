@@ -636,6 +636,46 @@ button { cursor: pointer; }
         <div id="variable-filter-list" class="segmented-group" role="group" aria-label="Filtrar por variable"></div>
       </div>
     </div>
+     <!-- Línea de tiempo histórica -->
+<div class="timeline-row" id="timeline-row">
+  <span class="timeline-title">Período histórico</span>
+
+  <span class="timeline-date" id="timeline-start-label">01/05/2026</span>
+
+  <div class="timeline-slider">
+    <div class="timeline-track-fill" id="timeline-track-fill"></div>
+
+    <input
+      type="range"
+      id="timeline-start"
+      min="0"
+      value="0"
+      step="1"
+      aria-label="Fecha inicial"
+    >
+
+    <input
+      type="range"
+      id="timeline-end"
+      min="0"
+      value="0"
+      step="1"
+      aria-label="Fecha final"
+    >
+  </div>
+
+  <span class="timeline-date" id="timeline-end-label">31/12/2026</span>
+
+  <button
+    type="button"
+    class="timeline-reset"
+    id="timeline-reset"
+    title="Restablecer período completo"
+    aria-label="Restablecer período completo"
+  >
+    ↺
+  </button>
+</div>
     <div class="active-filters" id="active-filters" aria-live="polite"></div>
   </section>
 

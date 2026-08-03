@@ -555,6 +555,123 @@ button { cursor: pointer; }
   .kpi-row { grid-template-columns: 1fr; }
   .kpi-card:nth-child(3) { grid-column: auto; }
 }
+/* Línea de tiempo histórica */
+.timeline-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(160px, 1fr) auto 30px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.timeline-date {
+  min-width: 72px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.timeline-slider {
+  position: relative;
+  height: 24px;
+}
+
+.timeline-slider::before,
+.timeline-track-fill {
+  position: absolute;
+  top: 11px;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 4px;
+}
+
+.timeline-slider::before {
+  content: "";
+  background: #cbd5e1;
+}
+
+.timeline-track-fill {
+  background: #2563eb;
+}
+
+.timeline-slider input[type="range"] {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.timeline-slider input[type="range"]::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  appearance: none;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.timeline-slider input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.timeline-reset {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #475569;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.timeline-reset:hover {
+  color: #ffffff;
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+@media (max-width: 700px) {
+  .timeline-row {
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+  }
+
+  .timeline-title {
+    grid-column: 1 / -1;
+  }
+
+  .timeline-slider {
+    min-width: 120px;
+  }
+}   
 </style>
 </head>
 <body>
@@ -736,6 +853,17 @@ const DATA_URL = 'https://raw.githubusercontent.com/FranSENAPRED/datos-sae/main/
 const CACHE_KEY = 'sae_dashboard_cache_v21';
 const META_KEY  = 'sae_dashboard_meta_v21';
 
+// Períodos disponibles para la línea de tiempo
+const HISTORICAL_PERIODS = {
+  'Meteorológica': {
+    start: '2026-05-01',
+    end: '2026-12-31'
+  },
+  'Incendios Forestales': {
+    start: '2026-06-01',
+    end: '2027-06-30'
+  }
+};   
 const POLL_INTERVAL_MS   = 300000; // 5 minutos
 const FETCH_TIMEOUT_MS   = 8000;
 const MAX_RETRIES        = 2;
@@ -822,6 +950,8 @@ const state = {
   columnMap: {},
   selectedThreat: 'Meteorológica',  // 'Incendios Forestales' | 'Meteorológica' (nunca null) — vista inicial del visor
   selectedVariable: 'Todas',        // 'Todas' | 'Inundación' | 'Remoción en masa' (solo aplica bajo Meteorológica)
+  selectedStartDate: '2026-05-01',
+  selectedEndDate: '2026-12-31',
   selectedRegion: null,
   isLoading: false,
   connection: 'loading', // 'loading' | 'online' | 'cache' | 'offline'
@@ -1069,7 +1199,53 @@ function normalizarFechaISO(fechaStr) {
   if (!fecha) return null;
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 }
+function isRowWithinSelectedPeriod(row) {
+  const fechaISO = normalizarFechaISO(getFecha(row));
 
+  if (!fechaISO) return false;
+
+  return fechaISO >= state.selectedStartDate &&
+         fechaISO <= state.selectedEndDate;
+}
+function parseISODateLocal(fechaISO) {
+  const partes = String(fechaISO || '').split('-').map(Number);
+
+  if (partes.length !== 3 || partes.some(Number.isNaN)) {
+    return null;
+  }
+
+  return new Date(partes[0], partes[1] - 1, partes[2], 12, 0, 0);
+}
+
+function formatDateCL(fechaISO) {
+  const fecha = parseISODateLocal(fechaISO);
+
+  return fecha
+    ? fecha.toLocaleDateString('es-CL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+    : '—';
+}
+function dayOffset(baseISO, targetISO) {
+  const base = parseISODateLocal(baseISO);
+  const target = parseISODateLocal(targetISO);
+
+  return base && target
+    ? Math.round((target - base) / 86400000)
+    : 0;
+}
+
+function dateFromOffset(baseISO, offset) {
+  const fecha = parseISODateLocal(baseISO);
+
+  if (!fecha) return baseISO;
+
+  fecha.setDate(fecha.getDate() + Number(offset || 0));
+
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
 function hoyISO() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1230,7 +1406,9 @@ function getFilteredData(opts) {
       coincideCategoria = esMeteorologica && (state.selectedVariable === 'Todas' || categoria === state.selectedVariable);
     }
     const coincideRegion = opts.ignoreRegion || !state.selectedRegion || getRegion(row) === state.selectedRegion;
-    return coincideCategoria && coincideRegion;
+    const coincideFecha = isRowWithinSelectedPeriod(row);
+
+    return coincideCategoria && coincideRegion && coincideFecha;
   });
 }
 
@@ -1238,6 +1416,7 @@ function setThreatFilter(threat) {
   const previousThreat = state.selectedThreat;
   state.selectedThreat = threat;
   state.selectedRegion = null;
+  renderTimeline(true);
   // Al volver a Meteorológica desde Incendios, se reinicia la variable a
   // "Todas"; si ya estaba en Meteorológica, se conserva la selección vigente.
   if (threat === 'Meteorológica' && previousThreat !== 'Meteorológica') {
@@ -1885,8 +2064,57 @@ function actualizarSubtituloAmenaza() {
 // =====================================================================
 // ORQUESTADOR DE RENDERIZADO
 // =====================================================================
+function renderTimeline(resetPeriod = false) {
+  const period =
+    HISTORICAL_PERIODS[state.selectedThreat] ||
+    HISTORICAL_PERIODS['Meteorológica'];
+
+  if (
+    resetPeriod ||
+    !state.selectedStartDate ||
+    !state.selectedEndDate ||
+    state.selectedStartDate < period.start ||
+    state.selectedEndDate > period.end
+  ) {
+    state.selectedStartDate = period.start;
+    state.selectedEndDate = period.end;
+  }
+
+  const startInput = document.getElementById('timeline-start');
+  const endInput = document.getElementById('timeline-end');
+  const startLabel = document.getElementById('timeline-start-label');
+  const endLabel = document.getElementById('timeline-end-label');
+  const trackFill = document.getElementById('timeline-track-fill');
+
+  if (!startInput || !endInput) return;
+
+  const maximumDays = dayOffset(period.start, period.end);
+  const startValue = dayOffset(period.start, state.selectedStartDate);
+  const endValue = dayOffset(period.start, state.selectedEndDate);
+
+  startInput.max = maximumDays;
+  endInput.max = maximumDays;
+
+  startInput.value = startValue;
+  endInput.value = endValue;
+
+  startLabel.textContent = formatDateCL(state.selectedStartDate);
+  endLabel.textContent = formatDateCL(state.selectedEndDate);
+
+  const startPercent = maximumDays
+    ? (startValue / maximumDays) * 100
+    : 0;
+
+  const endPercent = maximumDays
+    ? (endValue / maximumDays) * 100
+    : 100;
+
+  trackFill.style.left = `${startPercent}%`;
+  trackFill.style.right = `${100 - endPercent}%`;
+}
 function renderAll() {
   actualizarSubtituloAmenaza();
+  renderTimeline();
   renderThreatChips();
   renderVariableChips();
   syncSelectedRegion();
@@ -1913,6 +2141,42 @@ function bindEvents() {
 
   window.addEventListener('resize', () => {
     if (state.allData.length) renderChart(getFilteredData(), computeMetrics(getFilteredData()));
+  });
+  const timelineStart = document.getElementById('timeline-start');
+  const timelineEnd = document.getElementById('timeline-end');
+  const timelineReset = document.getElementById('timeline-reset');
+
+  timelineStart?.addEventListener('input', (event) => {
+    const period = HISTORICAL_PERIODS[state.selectedThreat];
+    let value = Number(event.target.value);
+    const endValue = Number(timelineEnd.value);
+
+    if (value > endValue) {
+      value = endValue;
+      event.target.value = value;
+    }
+
+    state.selectedStartDate = dateFromOffset(period.start, value);
+    renderAll();
+  });
+
+  timelineEnd?.addEventListener('input', (event) => {
+    const period = HISTORICAL_PERIODS[state.selectedThreat];
+    let value = Number(event.target.value);
+    const startValue = Number(timelineStart.value);
+
+    if (value < startValue) {
+      value = startValue;
+      event.target.value = value;
+    }
+
+    state.selectedEndDate = dateFromOffset(period.start, value);
+    renderAll();
+  });
+
+  timelineReset?.addEventListener('click', () => {
+    renderTimeline(true);
+    renderAll();
   });
 }
 
